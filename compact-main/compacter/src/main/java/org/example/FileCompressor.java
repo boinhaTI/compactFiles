@@ -17,7 +17,6 @@ public class FileCompressor {
 
         String nomeArquivoZip = gerarNomeArquivoZip(caminhoFonte);
 
-        // try-with-resources: fecha automático
         try (
                 FileOutputStream fos = new FileOutputStream(nomeArquivoZip);
                 ZipOutputStream zos = new ZipOutputStream(fos);
@@ -40,6 +39,48 @@ public class FileCompressor {
             System.out.println("Erro ao compactar o arquivo: " + e.getMessage());
         }
     }
+
+    public void comprimirPasta(String caminhoPasta) {
+        Path pasta = Paths.get(caminhoPasta);
+
+        if (!Files.exists(pasta) || !Files.isDirectory(pasta)) {
+            System.out.println("Pasta não encontrada ou caminho inválido: " + caminhoPasta);
+            return;
+        }
+
+        String nomeArquivoZip = pasta.getParent().resolve(pasta.getFileName() + "_compactado.zip").toString();
+
+        try (
+                FileOutputStream fos = new FileOutputStream(nomeArquivoZip);
+                ZipOutputStream zos = new ZipOutputStream(fos)
+        ) {
+            Files.walk(pasta)
+                    .filter(path -> !Files.isDirectory(path))
+                    .forEach(path -> {
+                        String zipEntryName = pasta.relativize(path).toString().replace("\\", "/"); // Corrige caminho no Windows
+                        try (InputStream fis = Files.newInputStream(path)) {
+                            ZipEntry zipEntry = new ZipEntry(zipEntryName);
+                            zos.putNextEntry(zipEntry);
+
+                            byte[] buffer = new byte[4096];
+                            int bytesRead;
+                            while ((bytesRead = fis.read(buffer)) != -1) {
+                                zos.write(buffer, 0, bytesRead);
+                            }
+
+                            zos.closeEntry();
+                        } catch (IOException e) {
+                            System.out.println("Erro ao adicionar arquivo: " + path + " -> " + e.getMessage());
+                        }
+                    });
+
+            System.out.println("Pasta compactada com sucesso: " + nomeArquivoZip );
+
+        } catch (IOException e) {
+            System.out.println("Erro ao compactar a pasta: " + e.getMessage());
+        }
+    }
+
 
     private String gerarNomeArquivoZip(Path caminhoFonte) {
         String nomeOriginal = caminhoFonte.getFileName().toString();
